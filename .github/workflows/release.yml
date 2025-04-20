@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - '*.*.*'
+      - '*'
 
 jobs:
   build:
@@ -101,17 +101,11 @@ jobs:
           filename: Release.zip
           directory: dist
 
-      - name: Get latest tag
-        id: latestTag
-        uses: 'WyriHaximus/github-action-get-previous-tag@v1.1.0'
-        with:
-          fallback: unknown
-
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
-          name: ${{ steps.latestTag.outputs.tag }}
-          body: ${{ steps.latestTag.outputs.tag }}
-          tag_name: ${{ steps.latestTag.outputs.tag }}
-          repository: atampy25/simple-mod-framework
+          name: rolling
+          body: rolling
+          tag_name: rolling
+          repository: WillsterJohnson/simple-mod-framework_linux-patch
           files: dist/Release.zip
