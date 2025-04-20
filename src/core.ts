@@ -1,8 +1,6 @@
 const FrameworkVersion = "2.33.25"
 const isDevBuild = false
 
-import * as Sentry from "@sentry/node"
-
 import type { Config } from "./types"
 import RPKGInstance from "./rpkg"
 import arg from "arg"
@@ -91,11 +89,6 @@ const logger = args["--useConsoleLogging"]
 				}
 
 				if (exitAfter) {
-					if (config.reportErrors) {
-						Sentry.getCurrentHub().getScope()!.getTransaction()!.finish()
-					}
-
-					await Sentry.close()
 
 					rpkgInstance.exit()
 					try {
@@ -195,11 +188,6 @@ const logger = args["--useConsoleLogging"]
 					}
 
 					if (exitAfter) {
-						if (config.reportErrors) {
-							Sentry.getCurrentHub().getScope()!.getTransaction()!.finish()
-						}
-
-						await Sentry.close()
 
 						rpkgInstance.exit()
 						try {
@@ -220,11 +208,6 @@ export default {
 	isDevBuild,
 	args,
 	cleanExit: async () => {
-		if (config.reportErrors) {
-			Sentry.getCurrentHub().getScope()!.getTransaction()!.finish()
-		}
-
-		await Sentry.close()
 
 		rpkgInstance.exit()
 		try {
