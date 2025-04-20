@@ -111,7 +111,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           name: ${{ steps.latestTag.outputs.tag }}
-          body: ${{ steps.changelog.outputs.changes }}
+          body: ${{ steps.latestTag.outputs.tag }}
           tag_name: ${{ steps.latestTag.outputs.tag }}
           repository: atampy25/simple-mod-framework
           files: dist/Release.zip
