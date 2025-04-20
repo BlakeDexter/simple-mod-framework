@@ -89,11 +89,13 @@ export async function copyFromCache(mod: string, cachePath: string, outputPath: 
 }
 
 export async function copyToCache(mod: string, originalPath: string, cachePath: string) {
+  await logger.verbose(`Clear cache: ${cachePath}`)
+  fs.emptyDirSync(path.join(process.cwd(), "cache", winPathEscape(mod), cachePath))
 	// do not cache if less than 5 GB remaining on disk
-	if (fs.existsSync(originalPath) && freeDiskSpace() / 1024 / 1024 / 1024 > 5) {
+  const hasSufficientDiskSpace = false // `freeDiskSpace() / 1024 / 1024 / 1024 > 5`
+	if (fs.existsSync(originalPath) && hasSufficientDiskSpace) {
 		await logger.verbose(`Copy to cache: ${mod} ${originalPath} ${cachePath}`)
 
-		fs.emptyDirSync(path.join(process.cwd(), "cache", winPathEscape(mod), cachePath))
 		fs.copySync(originalPath, path.join(process.cwd(), "cache", winPathEscape(mod), cachePath))
 		return true
 	}
