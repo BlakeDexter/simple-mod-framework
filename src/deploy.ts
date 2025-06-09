@@ -1527,6 +1527,7 @@ export default async function deploy(
 						})()
 					)
 
+					logger.info("1")
 					entityContent = content.source === "disk" ? JSON.parse(fs.readFileSync(content.path, "utf8")) : JSON.parse(await content.content.text())
 
 					const hash = normaliseToHash(entityContent["hash"])
@@ -1535,6 +1536,7 @@ export default async function deploy(
 						invalidatedData.some((a) => a.filePath === contentIdentifier) || // must redeploy, invalid cache
 						!(await copyFromCache(instruction.cacheFolder, path.join(`chunk${content.chunk}`, await xxhash3(contentIdentifier)), path.join(process.cwd(), "temp", `chunk${content.chunk}`))) // cache is not available
 					) {
+						logger.info("2")
 						fs.ensureDirSync(path.join(process.cwd(), "temp", `chunk${content.chunk}`))
 
 						let contentFilePath
@@ -1545,6 +1547,7 @@ export default async function deploy(
 							fs.writeFileSync(path.join(process.cwd(), "virtual", content.type), Buffer.from(await content.content.arrayBuffer()))
 							contentFilePath = path.join(process.cwd(), "virtual", content.type)
 						}
+						logger.info("3")
 
 						execCommand(
 							`"Third-Party\\HMLanguageTools" rebuild H3 ${binaryType} "${contentFilePath}" "${path.join(
@@ -1555,9 +1558,13 @@ export default async function deploy(
 							)}" --metapath "${path.join(process.cwd(), "temp", `chunk${content.chunk}`, `${hash}.${binaryType}.meta.json`)}"`
 						)
 
+						logger.info("4")
+
 						fs.removeSync(path.join(process.cwd(), "virtual"))
 
+
 						await copyToCache(instruction.cacheFolder, path.join(process.cwd(), "temp", `chunk${content.chunk}`), path.join(`chunk${content.chunk}`, await xxhash3(contentIdentifier)))
+						logger.info("5")
 					}
 
 					fs.ensureDirSync(path.join(process.cwd(), "staging", `chunk${content.chunk}`))
