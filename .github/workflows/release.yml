@@ -104,8 +104,8 @@ jobs:
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
-          name: rolling2
-          body: rolling2
-          tag_name: rolling2
-          repository: WillsterJohnson/simple-mod-framework_linux-patch
+          name: SMF-patch
+          body: SMF-patch
+          tag_name: SMF-patch
+          repository: BlakeDexter/simple-mod-framework
           files: dist/Release.zip
