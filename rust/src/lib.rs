@@ -14,6 +14,15 @@ use regex::Regex;
 use sysinfo::{Disk, DiskExt, RefreshKind, System, SystemExt};
 use walkdir::WalkDir;
 
+#[cfg(windows)]
+fn is_running_under_wine_registry() -> bool {
+    use winreg::enums::*;
+    use winreg::RegKey;
+    RegKey::predef(HKEY_CURRENT_USER)
+        .open_subkey("Software\\Wine")
+        .is_ok()
+}
+
 #[napi]
 pub fn stage_dependencies_from(from_folder: String, to_folder: String) {
 	let re_rpkg = Regex::new(r"(?i)00[0-9A-F]*\..*?\\(chunk[0-9]*(?:patch[0-9]*)?)\\").unwrap();
@@ -97,7 +106,7 @@ pub fn free_disk_space() -> Result<f64, napi::Error> {
 	let sys = System::new_with_specifics(RefreshKind::new().with_disks_list());
 
     let cur_disk: &Disk;
-    if cur_path.to_string_lossy().to_lowercase().starts_with("z:\\") {
+    if is_running_under_wine_registry() {
 		println!("Running inside Wine, defaulting to first disk.");
 		println!("Current path: {}", cur_path.to_string_lossy());
         cur_disk = &sys.disks().get(0).expect("Couldn't get current disk!");
