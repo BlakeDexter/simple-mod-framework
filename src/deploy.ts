@@ -12,7 +12,7 @@ import { copyFromCache, copyToCache, extractOrCopyToTemp, getQuickEntityFromPatc
 import { OptionType } from "./types"
 import Piscina from "piscina"
 import child_process from "child_process"
-import { crc32 } from "./crc32"
+import crc32 from "./crc32"
 import fs from "fs-extra"
 import json5 from "json5"
 import klaw from "klaw-sync"
@@ -34,6 +34,9 @@ const deepMerge = function (x: any, y: any) {
 const execCommand = function (command: string) {
 	void logger.verbose(`Executing command ${command}`)
 	child_process.execSync(command, { stdio: ["pipe", "pipe", "inherit"] })
+	// Memory management for Wine: force GC and add a short delay
+	if (global.gc) global.gc();
+	Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100); // ~100ms pause
 }
 
 const callRPKGFunction = async function (command: string) {
