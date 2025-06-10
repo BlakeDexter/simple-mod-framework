@@ -1165,6 +1165,7 @@ export default async function deploy(
 
 					if ((content.source === "disk" && path.basename(content.path).split(".")[0].split("~").length > 1) || (content.source === "virtual" && content.extraInformation.texdHash)) {
 						// TEXT and TEXD
+						await logger.info("1")
 
 						let contentFilePath
 						if (content.source === "disk") {
@@ -1175,6 +1176,7 @@ export default async function deploy(
 							fs.writeFileSync(path.join(process.cwd(), "virtual", "texture.tga.meta"), Buffer.from(await content.extraInformation.textureMeta!.arrayBuffer()))
 							contentFilePath = path.join(process.cwd(), "virtual", "texture.tga")
 						}
+						await logger.info("2")
 
 						execCommand(
 							`"Third-Party\\HMTextureTools" rebuild H3 "${contentFilePath}" --metapath "${`${contentFilePath}.meta`}" "${path.join(
@@ -1189,6 +1191,7 @@ export default async function deploy(
 								`${content.source === "disk" ? path.basename(content.path).split(".")[0].split("~")[1] : content.extraInformation.texdHash}.TEXD`
 							)}"`
 						) // Rebuild texture to TEXT/TEXD
+						await logger.info("3")
 
 						fs.writeFileSync(
 							path.join(
@@ -1215,6 +1218,7 @@ export default async function deploy(
 								]
 							})
 						)
+						await logger.info("4")
 
 						fs.writeFileSync(
 							path.join(
@@ -1236,6 +1240,7 @@ export default async function deploy(
 								hash_reference_data: []
 							})
 						)
+						await logger.info("5")
 
 						await callRPKGFunction(
 							`-json_to_hash_meta "${path.join(
@@ -1245,6 +1250,7 @@ export default async function deploy(
 								`${content.source === "disk" ? path.basename(content.path).split(".")[0].split("~")[0] : content.extraInformation.textHash}.TEXT.meta.JSON`
 							)}"`
 						) // Rebuild the TEXT meta
+						await logger.info("6")
 
 						await callRPKGFunction(
 							`-json_to_hash_meta "${path.join(
@@ -1254,10 +1260,12 @@ export default async function deploy(
 								`${content.source === "disk" ? path.basename(content.path).split(".")[0].split("~")[1] : content.extraInformation.texdHash}.TEXD.meta.JSON`
 							)}"`
 						) // Rebuild the TEXD meta
+						await logger.info("7")
 
 						fs.removeSync(path.join(process.cwd(), "virtual"))
 					} else {
 						// TEXT only
+						await logger.info("1a")
 
 						let contentFilePath
 						if (content.source === "disk") {
@@ -1268,6 +1276,7 @@ export default async function deploy(
 							fs.writeFileSync(path.join(process.cwd(), "virtual", "texture.tga.meta"), Buffer.from(await content.extraInformation.textureMeta!.arrayBuffer()))
 							contentFilePath = path.join(process.cwd(), "virtual", "texture.tga")
 						}
+						await logger.info("2a")
 
 						execCommand(
 							`"Third-Party\\HMTextureTools" rebuild H3 "${contentFilePath}" --metapath "${`${contentFilePath}.meta`}" "${path.join(
@@ -1277,6 +1286,7 @@ export default async function deploy(
 								`${path.basename(contentFilePath).split(".")[0]}.TEXT`
 							)}"`
 						) // Rebuild texture to TEXT only
+						await logger.info("3a")
 
 						fs.writeFileSync(
 							path.join(
@@ -1298,6 +1308,7 @@ export default async function deploy(
 								hash_reference_data: []
 							})
 						)
+						await logger.info("4a")
 
 						await callRPKGFunction(
 							`-json_to_hash_meta "${path.join(
@@ -1307,17 +1318,22 @@ export default async function deploy(
 								`${content.source === "disk" ? path.basename(content.path).split(".")[0].split("~")[0] : content.extraInformation.textHash}.TEXT.meta.json`
 							)}"`
 						) // Rebuild the meta
+						await logger.info("5a")
 
 						fs.removeSync(path.join(process.cwd(), "virtual"))
 					}
+					await logger.info("e")
 
 					await copyToCache(
 						instruction.cacheFolder,
 						path.join(process.cwd(), "temp", `chunk${content.chunk}`),
 						path.join(`chunk${content.chunk}`, `${path.basename(contentIdentifier).slice(0, 15)}-${await xxhash3(contentIdentifier)}`)
 					)
+					await logger.info("1")
+
 
 					fs.ensureDirSync(path.join(process.cwd(), "staging", `chunk${content.chunk}`))
+					await logger.info("2")
 
 					// Copy TEXT stuff
 					fs.copyFileSync(
@@ -1334,6 +1350,8 @@ export default async function deploy(
 							`${content.source === "disk" ? path.basename(content.path).split(".")[0].split("~")[0] : content.extraInformation.textHash}.TEXT`
 						)
 					)
+					await logger.info("3")
+
 					fs.copyFileSync(
 						path.join(
 							process.cwd(),
@@ -1348,6 +1366,7 @@ export default async function deploy(
 							`${content.source === "disk" ? path.basename(content.path).split(".")[0].split("~")[0] : content.extraInformation.textHash}.TEXT.meta`
 						)
 					)
+					await logger.info("4")
 
 					// Copy TEXD stuff if necessary
 					if ((content.source === "disk" && path.basename(content.path).split(".")[0].split("~").length > 1) || (content.source === "virtual" && content.extraInformation.texdHash)) {
