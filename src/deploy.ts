@@ -559,6 +559,7 @@ export default async function deploy(
 		}
 
 		for (const content of instruction.content) {
+			logger.debug(`Processing content ${content.type} from ${content.source} in chunk ${content.chunk}`)
 			const contentIdentifier = content.source === "disk" ? content.path : content.identifier
 
 			fs.ensureDirSync(path.join(process.cwd(), "staging", `chunk${content.chunk}`))
@@ -575,6 +576,7 @@ export default async function deploy(
 					await logger.debug(`Converting entity ${contentIdentifier}`)
 
 					entityContent = LosslessJSON.parse(String(content.source === "disk" ? fs.readFileSync(content.path) : await content.content.text()))
+					await logger.debug("Entity JSON parsed")
 
 					try {
 						if (!getQuickEntityFromVersion(entityContent.quickEntityVersion.value)) {
@@ -583,18 +585,22 @@ export default async function deploy(
 					} catch {
 						await logger.error("Improper QuickEntity JSON; couldn't find the version!")
 					}
+					await logger.debug("QuickEntity version checked")
 
 					RPKGHashCache[entityContent.tempHash] = [`chunk${content.chunk}`, true]
 					RPKGHashCache[entityContent.tbluHash] = [`chunk${content.chunk}`, true]
+					await logger.debug("RPKG hashes cached")
 
 					if (+entityContent.quickEntityVersion.value < 3) {
+						await logger.debug(`Entity JSON from ${contentIdentifier} is using QuickEntity version ${entityContent.quickEntityVersion.value}, which is less than 3.0.`)
 						if (content.source === "disk") {
 							await logger.info(`Optimising entity.json file ${contentIdentifier}`)
 
 							fs.ensureDirSync(path.join(process.cwd(), "qn-update"))
+							await logger.debug("Ensured qn-update directory exists")
 
 							const comments = Object.entries(entityContent.entities).filter((a) => (a[1] as { type: string | undefined }).type === "comment")
-
+							await logger.debug("Extracted comments from entity.json")
 							await getQuickEntityFromVersion(entityContent.quickEntityVersion.value).generate(
 								"HM3",
 								content.path,
@@ -603,6 +609,7 @@ export default async function deploy(
 								path.join(process.cwd(), "qn-update", "tblu.json"),
 								path.join(process.cwd(), "qn-update", "tblu.meta.json")
 							)
+							await logger.debug("Generated temporary QuickEntity files")
 
 							await getQuickEntityFromVersion("3.1").convert(
 								"HM3",
@@ -612,6 +619,7 @@ export default async function deploy(
 								path.join(process.cwd(), "qn-update", "tblu.meta.json"),
 								content.path
 							)
+							await logger.debug("Converted QuickEntity files to 3.1 format")
 
 							fs.writeFileSync(
 								content.path,
@@ -627,28 +635,38 @@ export default async function deploy(
 									})
 								)
 							)
+							await logger.debug("Wrote optimised entity.json file")
 
 							fs.removeSync(path.join(process.cwd(), "qn-update"))
 
+							await logger.debug	("Removed temporary QuickEntity files")
+
 							entityContent = LosslessJSON.parse(fs.readFileSync(content.path, "utf8"))
+							await logger.debug("Re-parsed optimised entity.json file")
 
 							if (!config.developerMode) {
+								await logger.debug("Logging warning about optimised entity.json file")
 								await logger.warn(
 									`Optimised an entity.json file from ${instruction.id}. This should improve the speed of deploys from now on. Consider contacting the mod developer to run this process on their end rather than the user's computer.`
 								)
 							} else {
+								await logger.debug("Logging warning about automatically upgraded entity.json file")
 								await logger.warn(`Automatically upgraded an entity.json file from ${instruction.id} to the latest QuickEntity version.`)
 							}
 						} else {
+							await logger.debug("Logging warning about virtual QuickEntity JSON with version less than 3.0")
 							await logger.warn(`Mod ${instruction.id} emits a virtual QuickEntity JSON with a version less than 3.1 using scripting. This should not be the case.`)
 						}
 					} else if (+entityContent.quickEntityVersion.value < 3.1) {
+						await logger.debug(`Entity JSON from ${contentIdentifier} is using QuickEntity version ${entityContent.quickEntityVersion.value}, which is less than 3.1.`)
 						if (content.source === "disk") {
 							await logger.info(`Optimising entity.json file ${contentIdentifier}`)
 
 							fs.ensureDirSync(path.join(process.cwd(), "qn-update"))
+							await logger.debug("Ensured qn-update directory exists")
 
 							const comments = entityContent.comments
+							await logger.debug("Extracted comments from entity.json")
 
 							await getQuickEntityFromVersion(entityContent.quickEntityVersion.value).generate(
 								"HM3",
@@ -658,6 +676,7 @@ export default async function deploy(
 								path.join(process.cwd(), "qn-update", "tblu.json"),
 								path.join(process.cwd(), "qn-update", "tblu.meta.json")
 							)
+							await logger.debug("Generated temporary QuickEntity files")
 
 							await getQuickEntityFromVersion("3.1").convert(
 								"HM3",
@@ -667,6 +686,7 @@ export default async function deploy(
 								path.join(process.cwd(), "qn-update", "tblu.meta.json"),
 								content.path
 							)
+							await logger.debug("Converted QuickEntity files to 3.1 format")
 
 							fs.writeFileSync(
 								content.path,
@@ -676,19 +696,25 @@ export default async function deploy(
 									})
 								)
 							)
+							await logger.debug	("Wrote optimised entity.json file")
 
 							fs.removeSync(path.join(process.cwd(), "qn-update"))
+							await logger.debug	("Removed temporary QuickEntity files")
 
 							entityContent = LosslessJSON.parse(fs.readFileSync(content.path, "utf8"))
+							await logger.debug("Re-parsed optimised entity.json file")
 
 							if (!config.developerMode) {
+								await logger.debug("Logging warning about optimised entity.json file")
 								await logger.warn(
 									`Optimised an entity.json file from ${instruction.id}. This should improve the speed of deploys from now on. Consider contacting the mod developer to run this process on their end rather than the user's computer.`
 								)
 							} else {
+								await logger.debug("Logging warning about automatically upgraded entity.json file")
 								await logger.warn(`Automatically upgraded an entity.json file from ${instruction.id} to the latest QuickEntity version.`)
 							}
 						} else {
+							await logger.debug("Logging warning about virtual QuickEntity JSON with version less than 3.1")
 							await logger.warn(`Mod ${instruction.id} emits a virtual QuickEntity JSON with a version less than 3.1 using scripting. This should not be the case.`)
 						}
 					}
@@ -703,10 +729,12 @@ export default async function deploy(
 						)) // cache is not available
 					) {
 						let contentPath
-
+						await logger.debug(`Content path for ${contentIdentifier} is being set`)
 						if (content.source === "disk") {
+							await logger.debug(`Content path for ${contentIdentifier} is set to ${content.path}`)
 							contentPath = content.path
 						} else {
+							await logger.debug(`Content path for ${contentIdentifier} is set to virtual entity.json`)
 							fs.ensureDirSync(path.join(process.cwd(), "virtual"))
 							fs.writeFileSync(path.join(process.cwd(), "virtual", "entity.json"), Buffer.from(await content.content.arrayBuffer()))
 							contentPath = path.join(process.cwd(), "virtual", "entity.json")
@@ -726,8 +754,10 @@ export default async function deploy(
 						} catch {
 							await logger.error(`Could not generate entity ${contentIdentifier}!`)
 						}
+						await logger.debug("QN generate completed")
 
 						fs.removeSync(path.join(process.cwd(), "virtual"))
+						await logger.debug("Removed virtual directory")
 
 						// Generate the RT source from the QN json
 						execCommand(
@@ -737,6 +767,7 @@ export default async function deploy(
 								`${entityContent.tempHash}.TEMP`
 							)}" --simple`
 						)
+						await logger.debug("TEMP generated")
 						execCommand(
 							`"Third-Party\\ResourceTool.exe" HM3 generate TBLU "${path.join(process.cwd(), "temp", "temp.TBLU.json")}" "${path.join(
 								process.cwd(),
@@ -744,21 +775,27 @@ export default async function deploy(
 								`${entityContent.tbluHash}.TBLU`
 							)}" --simple`
 						)
+						await logger.debug("TBLU generated")
 
 						await callRPKGFunction(`-json_to_hash_meta "${path.join(process.cwd(), "temp", `${entityContent.tempHash}.TEMP.meta.json`)}"`)
 						await callRPKGFunction(`-json_to_hash_meta "${path.join(process.cwd(), "temp", `${entityContent.tbluHash}.TBLU.meta.json`)}"`)
 						// Generate the binary files from the RT json
 
+						await logger.debug("Hash meta converted to JSON")
 						fs.copyFileSync(path.join(process.cwd(), "temp", `${entityContent.tempHash}.TEMP`), path.join(process.cwd(), "staging", `chunk${content.chunk}`, `${entityContent.tempHash}.TEMP`))
+						await logger.debug("TEMP copied to staging")
 						fs.copyFileSync(
 							path.join(process.cwd(), "temp", `${entityContent.tempHash}.TEMP.meta`),
 							path.join(process.cwd(), "staging", `chunk${content.chunk}`, `${entityContent.tempHash}.TEMP.meta`)
 						)
+						await logger.debug("TEMP meta copied to staging")
 						fs.copyFileSync(path.join(process.cwd(), "temp", `${entityContent.tbluHash}.TBLU`), path.join(process.cwd(), "staging", `chunk${content.chunk}`, `${entityContent.tbluHash}.TBLU`))
+						await logger.debug("TBLU copied to staging")
 						fs.copyFileSync(
 							path.join(process.cwd(), "temp", `${entityContent.tbluHash}.TBLU.meta`),
 							path.join(process.cwd(), "staging", `chunk${content.chunk}`, `${entityContent.tbluHash}.TBLU.meta`)
 						)
+						await logger.debug("TBLU meta copied to staging")
 						// Copy the binary files to the staging directory
 
 						await copyToCache(
@@ -766,6 +803,7 @@ export default async function deploy(
 							path.join(process.cwd(), "temp"),
 							path.join(`chunk${content.chunk}`, `${path.basename(contentIdentifier).slice(0, 15)}-${await xxhash3(contentIdentifier)}`)
 						)
+						await logger.debug("Copied to cache")
 						// Copy the binary files to the cache
 					}
 
