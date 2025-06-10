@@ -21,6 +21,7 @@ import mergeWith from "lodash.mergewith"
 import os from "os"
 import path from "path"
 import { xxhash3 } from "hash-wasm"
+import { log } from "console"
 
 const deepMerge = function (x: any, y: any) {
 	return mergeWith(x, y, (orig, src) => {
@@ -1211,11 +1212,14 @@ export default async function deploy(
 							path.join(process.cwd(), "temp", `chunk${content.chunk}`)
 						)) // cache is not available
 					) {
+						logger.debug(`Extracting texture ${contentIdentifier} to temp`)
 						fs.ensureDirSync(path.join(process.cwd(), "temp", `chunk${content.chunk}`))
 
+						logger.debug(`Copying texture ${contentIdentifier} to temp`)
 						if ((content.source === "disk" && path.basename(content.path).split(".")[0].split("~").length > 1) || (content.source === "virtual" && content.extraInformation.texdHash)) {
 							// TEXT and TEXD
 
+							logger.debug(`Copying texture ${contentIdentifier} to temp with TEXT and TEXD`)
 							let contentFilePath
 							if (content.source === "disk") {
 								contentFilePath = content.path
@@ -1226,6 +1230,7 @@ export default async function deploy(
 								contentFilePath = path.join(process.cwd(), "virtual", "texture.tga")
 							}
 
+							logger.debug(`Rebuilding texture ${contentIdentifier} to TEXT and TEXD`)
 							execCommand(
 								`"Third-Party\\HMTextureTools" rebuild H3 "${contentFilePath}" --metapath "${`${contentFilePath}.meta`}" "${path.join(
 									process.cwd(),
@@ -1240,6 +1245,7 @@ export default async function deploy(
 								)}"`
 							) // Rebuild texture to TEXT/TEXD
 
+							logger.debug(`Writing TEXT and TEXD meta for texture ${contentIdentifier}`)
 							fs.writeFileSync(
 								path.join(
 									process.cwd(),
@@ -1266,6 +1272,7 @@ export default async function deploy(
 								})
 							)
 
+							logger.debug(`Writing TEXD meta for texture ${contentIdentifier}`)
 							fs.writeFileSync(
 								path.join(
 									process.cwd(),
@@ -1287,6 +1294,7 @@ export default async function deploy(
 								})
 							)
 
+							logger.debug("Rpkg function to rebuild TEXT meta")
 							await callRPKGFunction(
 								`-json_to_hash_meta "${path.join(
 									process.cwd(),
@@ -1296,6 +1304,7 @@ export default async function deploy(
 								)}"`
 							) // Rebuild the TEXT meta
 
+							logger.debug("Rpkg function to rebuild TEXD meta")
 							await callRPKGFunction(
 								`-json_to_hash_meta "${path.join(
 									process.cwd(),
@@ -1305,10 +1314,12 @@ export default async function deploy(
 								)}"`
 							) // Rebuild the TEXD meta
 
+							logger.debug("Removing virtual directory")
 							fs.removeSync(path.join(process.cwd(), "virtual"))
 						} else {
 							// TEXT only
 
+							logger.debug(`Copying texture ${contentIdentifier} to temp with TEXT only`)
 							let contentFilePath
 							if (content.source === "disk") {
 								contentFilePath = content.path
@@ -1319,6 +1330,7 @@ export default async function deploy(
 								contentFilePath = path.join(process.cwd(), "virtual", "texture.tga")
 							}
 
+							logger.debug(`Rebuilding texture ${contentIdentifier} to TEXT only`)
 							execCommand(
 								`"Third-Party\\HMTextureTools" rebuild H3 "${contentFilePath}" --metapath "${`${contentFilePath}.meta`}" "${path.join(
 									process.cwd(),
@@ -1328,6 +1340,7 @@ export default async function deploy(
 								)}"`
 							) // Rebuild texture to TEXT only
 
+							logger.debug(`Writing TEXT meta for texture ${contentIdentifier}`)
 							fs.writeFileSync(
 								path.join(
 									process.cwd(),
@@ -1349,6 +1362,7 @@ export default async function deploy(
 								})
 							)
 
+							logger.debug("Rpkg function to rebuild TEXT meta")
 							await callRPKGFunction(
 								`-json_to_hash_meta "${path.join(
 									process.cwd(),
@@ -1361,6 +1375,7 @@ export default async function deploy(
 							fs.removeSync(path.join(process.cwd(), "virtual"))
 						}
 
+						logger.debug(`Copying texture ${contentIdentifier} to cache`)
 						await copyToCache(
 							instruction.cacheFolder,
 							path.join(process.cwd(), "temp", `chunk${content.chunk}`),
@@ -1368,8 +1383,10 @@ export default async function deploy(
 						)
 					}
 
+					logger.debug(`Copying texture ${contentIdentifier} to staging`)
 					fs.ensureDirSync(path.join(process.cwd(), "staging", `chunk${content.chunk}`))
 
+					logger.debug(`Copying TEXT for texture ${contentIdentifier} to staging`)
 					// Copy TEXT stuff
 					fs.copyFileSync(
 						path.join(
@@ -1385,6 +1402,7 @@ export default async function deploy(
 							`${content.source === "disk" ? path.basename(content.path).split(".")[0].split("~")[0] : content.extraInformation.textHash}.TEXT`
 						)
 					)
+					logger.debug(`Copying TEXT meta for texture ${contentIdentifier} to staging`)
 					fs.copyFileSync(
 						path.join(
 							process.cwd(),
@@ -1400,6 +1418,7 @@ export default async function deploy(
 						)
 					)
 
+					logger.debug(`Copying TEXD for texture ${contentIdentifier} to staging`)
 					// Copy TEXD stuff if necessary
 					if ((content.source === "disk" && path.basename(content.path).split(".")[0].split("~").length > 1) || (content.source === "virtual" && content.extraInformation.texdHash)) {
 						fs.copyFileSync(
