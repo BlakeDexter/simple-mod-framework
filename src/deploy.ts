@@ -155,13 +155,8 @@ export default async function deploy(
 				fs.emptyDirSync(path.join(process.cwd(), "temp"))
 
 				for (const contentFile of fs.readdirSync(path.join(process.cwd(), "Mods", mod, chunkFolder))) {
-					if (
-						invalidatedData.some((a) => a.filePath === path.join(process.cwd(), "Mods", mod, chunkFolder, contentFile)) || // must redeploy, invalid cache
-						!(await copyFromCache(mod, path.join(chunkFolder, contentFile), path.join(process.cwd(), "temp"))) // cache is not available
-					) {
-						await callRPKGFunction(`-extract_from_rpkg "${path.join(process.cwd(), "Mods", mod, chunkFolder, contentFile)}" -output_path "${path.join(process.cwd(), "temp")}"`)
-						await copyToCache(mod, path.join(process.cwd(), "temp"), path.join(chunkFolder, contentFile))
-					}
+					await callRPKGFunction(`-extract_from_rpkg "${path.join(process.cwd(), "Mods", mod, chunkFolder, contentFile)}" -output_path "${path.join(process.cwd(), "temp")}"`)
+					await copyToCache(mod, path.join(process.cwd(), "temp"), path.join(chunkFolder, contentFile))
 				}
 
 				allRPKGTypes[chunkFolder] = "patch"
@@ -690,81 +685,72 @@ export default async function deploy(
 					}
 
 					await logger.verbose("Cache check")
-					if (
-						invalidatedData.some((a) => a.filePath === contentIdentifier) || // must redeploy, invalid cache
-						!(await copyFromCache(
-							instruction.cacheFolder,
-							path.join(`chunk${content.chunk}`, `${path.basename(contentIdentifier).slice(0, 15)}-${await xxhash3(contentIdentifier)}`),
-							path.join(process.cwd(), "staging", `chunk${content.chunk}`)
-						)) // cache is not available
-					) {
-						let contentPath
 
-						if (content.source === "disk") {
-							contentPath = content.path
-						} else {
-							fs.ensureDirSync(path.join(process.cwd(), "virtual"))
-							fs.writeFileSync(path.join(process.cwd(), "virtual", "entity.json"), Buffer.from(await content.content.arrayBuffer()))
-							contentPath = path.join(process.cwd(), "virtual", "entity.json")
-						}
+					let contentPath
 
-						try {
-							await logger.verbose("QN generate")
-
-							await getQuickEntityFromVersion(entityContent.quickEntityVersion.value).generate(
-								"HM3",
-								contentPath,
-								path.join(process.cwd(), "temp", "temp.TEMP.json"),
-								path.join(process.cwd(), "temp", `${entityContent.tempHash}.TEMP.meta.json`),
-								path.join(process.cwd(), "temp", "temp.TBLU.json"),
-								path.join(process.cwd(), "temp", `${entityContent.tbluHash}.TBLU.meta.json`)
-							)
-						} catch {
-							await logger.error(`Could not generate entity ${contentIdentifier}!`)
-						}
-
-						fs.removeSync(path.join(process.cwd(), "virtual"))
-
-						// Generate the RT source from the QN json
-						execCommand(
-							`"Third-Party\\ResourceTool.exe" HM3 generate TEMP "${path.join(process.cwd(), "temp", "temp.TEMP.json")}" "${path.join(
-								process.cwd(),
-								"temp",
-								`${entityContent.tempHash}.TEMP`
-							)}" --simple`
-						)
-						execCommand(
-							`"Third-Party\\ResourceTool.exe" HM3 generate TBLU "${path.join(process.cwd(), "temp", "temp.TBLU.json")}" "${path.join(
-								process.cwd(),
-								"temp",
-								`${entityContent.tbluHash}.TBLU`
-							)}" --simple`
-						)
-
-						await callRPKGFunction(`-json_to_hash_meta "${path.join(process.cwd(), "temp", `${entityContent.tempHash}.TEMP.meta.json`)}"`)
-						await callRPKGFunction(`-json_to_hash_meta "${path.join(process.cwd(), "temp", `${entityContent.tbluHash}.TBLU.meta.json`)}"`)
-						// Generate the binary files from the RT json
-
-						fs.copyFileSync(path.join(process.cwd(), "temp", `${entityContent.tempHash}.TEMP`), path.join(process.cwd(), "staging", `chunk${content.chunk}`, `${entityContent.tempHash}.TEMP`))
-						fs.copyFileSync(
-							path.join(process.cwd(), "temp", `${entityContent.tempHash}.TEMP.meta`),
-							path.join(process.cwd(), "staging", `chunk${content.chunk}`, `${entityContent.tempHash}.TEMP.meta`)
-						)
-						fs.copyFileSync(path.join(process.cwd(), "temp", `${entityContent.tbluHash}.TBLU`), path.join(process.cwd(), "staging", `chunk${content.chunk}`, `${entityContent.tbluHash}.TBLU`))
-						fs.copyFileSync(
-							path.join(process.cwd(), "temp", `${entityContent.tbluHash}.TBLU.meta`),
-							path.join(process.cwd(), "staging", `chunk${content.chunk}`, `${entityContent.tbluHash}.TBLU.meta`)
-						)
-						// Copy the binary files to the staging directory
-
-						await copyToCache(
-							instruction.cacheFolder,
-							path.join(process.cwd(), "temp"),
-							path.join(`chunk${content.chunk}`, `${path.basename(contentIdentifier).slice(0, 15)}-${await xxhash3(contentIdentifier)}`)
-						)
-						// Copy the binary files to the cache
+					if (content.source === "disk") {
+						contentPath = content.path
+					} else {
+						fs.ensureDirSync(path.join(process.cwd(), "virtual"))
+						fs.writeFileSync(path.join(process.cwd(), "virtual", "entity.json"), Buffer.from(await content.content.arrayBuffer()))
+						contentPath = path.join(process.cwd(), "virtual", "entity.json")
 					}
 
+					try {
+						await logger.verbose("QN generate")
+
+						await getQuickEntityFromVersion(entityContent.quickEntityVersion.value).generate(
+							"HM3",
+							contentPath,
+							path.join(process.cwd(), "temp", "temp.TEMP.json"),
+							path.join(process.cwd(), "temp", `${entityContent.tempHash}.TEMP.meta.json`),
+							path.join(process.cwd(), "temp", "temp.TBLU.json"),
+							path.join(process.cwd(), "temp", `${entityContent.tbluHash}.TBLU.meta.json`)
+						)
+					} catch {
+						await logger.error(`Could not generate entity ${contentIdentifier}!`)
+					}
+
+					fs.removeSync(path.join(process.cwd(), "virtual"))
+
+					// Generate the RT source from the QN json
+					execCommand(
+						`"Third-Party\\ResourceTool.exe" HM3 generate TEMP "${path.join(process.cwd(), "temp", "temp.TEMP.json")}" "${path.join(
+							process.cwd(),
+							"temp",
+							`${entityContent.tempHash}.TEMP`
+						)}" --simple`
+					)
+					execCommand(
+						`"Third-Party\\ResourceTool.exe" HM3 generate TBLU "${path.join(process.cwd(), "temp", "temp.TBLU.json")}" "${path.join(
+							process.cwd(),
+							"temp",
+							`${entityContent.tbluHash}.TBLU`
+						)}" --simple`
+					)
+
+					await callRPKGFunction(`-json_to_hash_meta "${path.join(process.cwd(), "temp", `${entityContent.tempHash}.TEMP.meta.json`)}"`)
+					await callRPKGFunction(`-json_to_hash_meta "${path.join(process.cwd(), "temp", `${entityContent.tbluHash}.TBLU.meta.json`)}"`)
+					// Generate the binary files from the RT json
+
+					fs.copyFileSync(path.join(process.cwd(), "temp", `${entityContent.tempHash}.TEMP`), path.join(process.cwd(), "staging", `chunk${content.chunk}`, `${entityContent.tempHash}.TEMP`))
+					fs.copyFileSync(
+						path.join(process.cwd(), "temp", `${entityContent.tempHash}.TEMP.meta`),
+						path.join(process.cwd(), "staging", `chunk${content.chunk}`, `${entityContent.tempHash}.TEMP.meta`)
+					)
+					fs.copyFileSync(path.join(process.cwd(), "temp", `${entityContent.tbluHash}.TBLU`), path.join(process.cwd(), "staging", `chunk${content.chunk}`, `${entityContent.tbluHash}.TBLU`))
+					fs.copyFileSync(
+						path.join(process.cwd(), "temp", `${entityContent.tbluHash}.TBLU.meta`),
+						path.join(process.cwd(), "staging", `chunk${content.chunk}`, `${entityContent.tbluHash}.TBLU.meta`)
+					)
+					// Copy the binary files to the staging directory
+
+					await copyToCache(
+						instruction.cacheFolder,
+						path.join(process.cwd(), "temp"),
+						path.join(`chunk${content.chunk}`, `${path.basename(contentIdentifier).slice(0, 15)}-${await xxhash3(contentIdentifier)}`)
+					)
+					// Copy the binary files to the cache
 					break
 				}
 				case "entity.patch.json": {
@@ -921,34 +907,25 @@ export default async function deploy(
 
 					const oresChunk = await getRPKGOfHash("0057C2C3941115CA")
 
-					if (
-						invalidatedData.some((a) => a.filePath === contentIdentifier) || // must redeploy, invalid cache
-						!(await copyFromCache(
-							instruction.cacheFolder,
-							path.join(`chunk${content.chunk}`, `${path.basename(contentIdentifier).slice(0, 15)}-${await xxhash3(contentIdentifier)}`),
-							path.join(process.cwd(), "temp", oresChunk)
-						)) // cache is not available
-					) {
-						await extractOrCopyToTemp(oresChunk, "0057C2C3941115CA", "ORES") // Extract the ORES to temp
+					await extractOrCopyToTemp(oresChunk, "0057C2C3941115CA", "ORES") // Extract the ORES to temp
 
-						execCommand(`"Third-Party\\OREStool.exe" "${path.join(process.cwd(), "temp", oresChunk, "ORES", "0057C2C3941115CA.ORES")}"`)
-						const oresContent = JSON.parse(fs.readFileSync(path.join(process.cwd(), "temp", oresChunk, "ORES", "0057C2C3941115CA.ORES.JSON"), "utf8"))
+					execCommand(`"Third-Party\\OREStool.exe" "${path.join(process.cwd(), "temp", oresChunk, "ORES", "0057C2C3941115CA.ORES")}"`)
+					const oresContent = JSON.parse(fs.readFileSync(path.join(process.cwd(), "temp", oresChunk, "ORES", "0057C2C3941115CA.ORES.JSON"), "utf8"))
 
-						await logger.verbose("Deep merge")
-						const oresToPatch = Object.fromEntries(oresContent.map((a: { Id: string }) => [a.Id, a]))
-						deepMerge(oresToPatch, entityContent)
-						const oresToWrite = Object.entries(oresToPatch).map((a) => ({ ...a[1], Id: a[1].Id || a[0] }))
+					await logger.verbose("Deep merge")
+					const oresToPatch = Object.fromEntries(oresContent.map((a: { Id: string }) => [a.Id, a]))
+					deepMerge(oresToPatch, entityContent)
+					const oresToWrite = Object.entries(oresToPatch).map((a) => ({ ...a[1], Id: a[1].Id || a[0] }))
 
-						fs.writeFileSync(path.join(process.cwd(), "temp", oresChunk, "ORES", "0057C2C3941115CA.ORES.JSON"), JSON.stringify(oresToWrite))
-						fs.rmSync(path.join(process.cwd(), "temp", oresChunk, "ORES", "0057C2C3941115CA.ORES"))
-						execCommand(`"Third-Party\\OREStool.exe" "${path.join(process.cwd(), "temp", oresChunk, "ORES", "0057C2C3941115CA.ORES.json")}"`)
+					fs.writeFileSync(path.join(process.cwd(), "temp", oresChunk, "ORES", "0057C2C3941115CA.ORES.JSON"), JSON.stringify(oresToWrite))
+					fs.rmSync(path.join(process.cwd(), "temp", oresChunk, "ORES", "0057C2C3941115CA.ORES"))
+					execCommand(`"Third-Party\\OREStool.exe" "${path.join(process.cwd(), "temp", oresChunk, "ORES", "0057C2C3941115CA.ORES.json")}"`)
 
-						await copyToCache(
-							instruction.cacheFolder,
-							path.join(process.cwd(), "temp", oresChunk),
-							path.join(`chunk${content.chunk}`, `${path.basename(contentIdentifier).slice(0, 15)}-${await xxhash3(contentIdentifier)}`)
-						)
-					}
+					await copyToCache(
+						instruction.cacheFolder,
+						path.join(process.cwd(), "temp", oresChunk),
+						path.join(`chunk${content.chunk}`, `${path.basename(contentIdentifier).slice(0, 15)}-${await xxhash3(contentIdentifier)}`)
+					)
 
 					execCommand(`"Third-Party\\OREStool.exe" "${path.join(process.cwd(), "temp", oresChunk, "ORES", "0057C2C3941115CA.ORES")}"`)
 					lastServerSideStates["unlockables"] = JSON.parse(fs.readFileSync(path.join(process.cwd(), "temp", oresChunk, "ORES", "0057C2C3941115CA.ORES.JSON"), "utf8"))
@@ -964,63 +941,54 @@ export default async function deploy(
 
 					const repoRPKG = await getRPKGOfHash("00204D1AFD76AB13")
 
-					if (
-						invalidatedData.some((a) => a.filePath === contentIdentifier) || // must redeploy, invalid cache
-						!(await copyFromCache(
-							instruction.cacheFolder,
-							path.join(`chunk${content.chunk}`, `${path.basename(contentIdentifier).slice(0, 15)}-${await xxhash3(contentIdentifier)}`),
-							path.join(process.cwd(), "temp", repoRPKG)
-						)) // cache is not available
-					) {
-						await extractOrCopyToTemp(repoRPKG, "00204D1AFD76AB13", "REPO") // Extract the REPO to temp
+					await extractOrCopyToTemp(repoRPKG, "00204D1AFD76AB13", "REPO") // Extract the REPO to temp
 
-						const repoContent = JSON.parse(fs.readFileSync(path.join(process.cwd(), "temp", repoRPKG, "REPO", "00204D1AFD76AB13.REPO"), "utf8"))
+					const repoContent = JSON.parse(fs.readFileSync(path.join(process.cwd(), "temp", repoRPKG, "REPO", "00204D1AFD76AB13.REPO"), "utf8"))
 
-						const repoToPatch = Object.fromEntries(repoContent.map((a: { [x: string]: unknown }) => [a["ID_"], a]))
-						deepMerge(repoToPatch, entityContent)
-						const repoToWrite = Object.entries(repoToPatch).map((a) => ({ ...a[1], ID_: a[1].ID_ || a[0] }))
+					const repoToPatch = Object.fromEntries(repoContent.map((a: { [x: string]: unknown }) => [a["ID_"], a]))
+					deepMerge(repoToPatch, entityContent)
+					const repoToWrite = Object.entries(repoToPatch).map((a) => ({ ...a[1], ID_: a[1].ID_ || a[0] }))
 
-						const editedItems = new Set(Object.keys(entityContent))
+					const editedItems = new Set(Object.keys(entityContent))
 
-						await callRPKGFunction(`-hash_meta_to_json "${path.join(process.cwd(), "temp", repoRPKG, "REPO", "00204D1AFD76AB13.REPO.meta")}"`)
-						const metaContent = JSON.parse(fs.readFileSync(path.join(process.cwd(), "temp", repoRPKG, "REPO", "00204D1AFD76AB13.REPO.meta.JSON"), "utf8"))
-						for (const repoItem of repoToWrite) {
-							if (editedItems.has(repoItem.ID_)) {
-								if (repoItem.Runtime) {
-									if (!metaContent["hash_reference_data"].find((a: { hash: string }) => a.hash === parseInt(repoItem.Runtime).toString(16).toUpperCase())) {
-										metaContent["hash_reference_data"].push({
-											hash: parseInt(repoItem.Runtime).toString(16).toUpperCase(),
-											flag: "9F"
-										}) // Add Runtime of any items to REPO depends if not already there
-									}
+					await callRPKGFunction(`-hash_meta_to_json "${path.join(process.cwd(), "temp", repoRPKG, "REPO", "00204D1AFD76AB13.REPO.meta")}"`)
+					const metaContent = JSON.parse(fs.readFileSync(path.join(process.cwd(), "temp", repoRPKG, "REPO", "00204D1AFD76AB13.REPO.meta.JSON"), "utf8"))
+					for (const repoItem of repoToWrite) {
+						if (editedItems.has(repoItem.ID_)) {
+							if (repoItem.Runtime) {
+								if (!metaContent["hash_reference_data"].find((a: { hash: string }) => a.hash === parseInt(repoItem.Runtime).toString(16).toUpperCase())) {
+									metaContent["hash_reference_data"].push({
+										hash: parseInt(repoItem.Runtime).toString(16).toUpperCase(),
+										flag: "9F"
+									}) // Add Runtime of any items to REPO depends if not already there
 								}
+							}
 
-								if (repoItem.Image) {
-									if (
-										!metaContent["hash_reference_data"].find(
-											(a: { hash: string }) => a.hash === `00${md5(`[assembly:/_pro/online/default/cloudstorage/resources/${repoItem.Image}].pc_gfx`.toLowerCase()).slice(2, 16).toUpperCase()}`
-										)
-									) {
-										metaContent["hash_reference_data"].push({
-											hash: `00${md5(`[assembly:/_pro/online/default/cloudstorage/resources/${repoItem.Image}].pc_gfx`.toLowerCase()).slice(2, 16).toUpperCase()}`,
-											flag: "9F"
-										}) // Add Image of any items to REPO depends if not already there
-									}
+							if (repoItem.Image) {
+								if (
+									!metaContent["hash_reference_data"].find(
+										(a: { hash: string }) => a.hash === `00${md5(`[assembly:/_pro/online/default/cloudstorage/resources/${repoItem.Image}].pc_gfx`.toLowerCase()).slice(2, 16).toUpperCase()}`
+									)
+								) {
+									metaContent["hash_reference_data"].push({
+										hash: `00${md5(`[assembly:/_pro/online/default/cloudstorage/resources/${repoItem.Image}].pc_gfx`.toLowerCase()).slice(2, 16).toUpperCase()}`,
+										flag: "9F"
+									}) // Add Image of any items to REPO depends if not already there
 								}
 							}
 						}
-						fs.writeFileSync(path.join(process.cwd(), "temp", repoRPKG, "REPO", "00204D1AFD76AB13.REPO.meta.JSON"), JSON.stringify(metaContent))
-						fs.rmSync(path.join(process.cwd(), "temp", repoRPKG, "REPO", "00204D1AFD76AB13.REPO.meta"))
-						await callRPKGFunction(`-json_to_hash_meta "${path.join(process.cwd(), "temp", repoRPKG, "REPO", "00204D1AFD76AB13.REPO.meta.JSON")}"`) // Add all runtimes to REPO depends
-
-						fs.writeFileSync(path.join(process.cwd(), "temp", repoRPKG, "REPO", "00204D1AFD76AB13.REPO"), JSON.stringify(repoToWrite))
-
-						await copyToCache(
-							instruction.cacheFolder,
-							path.join(process.cwd(), "temp", repoRPKG),
-							path.join(`chunk${content.chunk}`, `${path.basename(contentIdentifier).slice(0, 15)}-${await xxhash3(contentIdentifier)}`)
-						)
 					}
+					fs.writeFileSync(path.join(process.cwd(), "temp", repoRPKG, "REPO", "00204D1AFD76AB13.REPO.meta.JSON"), JSON.stringify(metaContent))
+					fs.rmSync(path.join(process.cwd(), "temp", repoRPKG, "REPO", "00204D1AFD76AB13.REPO.meta"))
+					await callRPKGFunction(`-json_to_hash_meta "${path.join(process.cwd(), "temp", repoRPKG, "REPO", "00204D1AFD76AB13.REPO.meta.JSON")}"`) // Add all runtimes to REPO depends
+
+					fs.writeFileSync(path.join(process.cwd(), "temp", repoRPKG, "REPO", "00204D1AFD76AB13.REPO"), JSON.stringify(repoToWrite))
+
+					await copyToCache(
+						instruction.cacheFolder,
+						path.join(process.cwd(), "temp", repoRPKG),
+						path.join(`chunk${content.chunk}`, `${path.basename(contentIdentifier).slice(0, 15)}-${await xxhash3(contentIdentifier)}`)
+					)
 
 					fs.copyFileSync(path.join(process.cwd(), "temp", repoRPKG, "REPO", "00204D1AFD76AB13.REPO"), path.join(process.cwd(), "staging", "chunk0", "00204D1AFD76AB13.REPO"))
 					fs.copyFileSync(path.join(process.cwd(), "temp", repoRPKG, "REPO", "00204D1AFD76AB13.REPO.meta"), path.join(process.cwd(), "staging", "chunk0", "00204D1AFD76AB13.REPO.meta"))
@@ -1113,56 +1081,47 @@ export default async function deploy(
 
 					const fileType = entityContent.type || "JSON"
 
-					if (
-						invalidatedData.some((a) => a.filePath === contentIdentifier) || // must redeploy, invalid cache
-						!(await copyFromCache(
-							instruction.cacheFolder,
-							path.join(`chunk${content.chunk}`, `${path.basename(contentIdentifier).slice(0, 15)}-${await xxhash3(contentIdentifier)}`),
-							path.join(process.cwd(), "temp", rpkgOfFile)
-						)) // cache is not available
-					) {
-						await extractOrCopyToTemp(rpkgOfFile, entityContent.file, fileType, `chunk${content.chunk}`) // Extract the JSON to temp
+					await extractOrCopyToTemp(rpkgOfFile, entityContent.file, fileType, `chunk${content.chunk}`) // Extract the JSON to temp
 
-						if (entityContent.type === "ORES") {
-							execCommand(`"Third-Party\\OREStool.exe" "${path.join(process.cwd(), "temp", rpkgOfFile, fileType, `${entityContent.file}.${fileType}`)}"`)
-							fs.rmSync(path.join(process.cwd(), "temp", rpkgOfFile, fileType, `${entityContent.file}.${fileType}`))
-							fs.renameSync(
-								path.join(process.cwd(), "temp", rpkgOfFile, fileType, `${entityContent.file}.${fileType}.json`),
-								path.join(process.cwd(), "temp", rpkgOfFile, fileType, `${entityContent.file}.${fileType}`)
-							)
-						}
-
-						let fileContent = JSON.parse(fs.readFileSync(path.join(process.cwd(), "temp", rpkgOfFile, fileType, `${entityContent.file}.${fileType}`), "utf8"))
-
-						if (entityContent.type === "ORES" && Array.isArray(fileContent)) {
-							fileContent = Object.fromEntries(fileContent.map((a) => [a.Id, a])) // Change unlockables ORES to be an object
-						} else if (entityContent.type === "REPO") {
-							fileContent = Object.fromEntries(fileContent.map((a: { [x: string]: unknown }) => [a["ID_"], a])) // Change REPO to be an object
-						}
-
-						rfc6902.applyPatch(fileContent, entityContent.patch) // Apply the JSON patch
-
-						if ((entityContent.type === "ORES" && Object.prototype.toString.call(fileContent) === "[object Object]") || entityContent.type === "REPO") {
-							fileContent = Object.values(fileContent) // Change back to an array
-						}
-
-						if (entityContent.type === "ORES") {
-							fs.renameSync(
-								path.join(process.cwd(), "temp", rpkgOfFile, fileType, `${entityContent.file}.${fileType}`),
-								path.join(process.cwd(), "temp", rpkgOfFile, fileType, `${entityContent.file}.${fileType}.json`)
-							)
-							fs.writeFileSync(path.join(process.cwd(), "temp", rpkgOfFile, fileType, `${entityContent.file}.${fileType}.json`), JSON.stringify(fileContent))
-							execCommand(`"Third-Party\\OREStool.exe" "${path.join(process.cwd(), "temp", rpkgOfFile, fileType, `${entityContent.file}.${fileType}.json`)}"`)
-						} else {
-							fs.writeFileSync(path.join(process.cwd(), "temp", rpkgOfFile, fileType, `${entityContent.file}.${fileType}`), JSON.stringify(fileContent))
-						}
-
-						await copyToCache(
-							instruction.cacheFolder,
-							path.join(process.cwd(), "temp", rpkgOfFile),
-							path.join(`chunk${content.chunk}`, `${path.basename(contentIdentifier).slice(0, 15)}-${await xxhash3(contentIdentifier)}`)
+					if (entityContent.type === "ORES") {
+						execCommand(`"Third-Party\\OREStool.exe" "${path.join(process.cwd(), "temp", rpkgOfFile, fileType, `${entityContent.file}.${fileType}`)}"`)
+						fs.rmSync(path.join(process.cwd(), "temp", rpkgOfFile, fileType, `${entityContent.file}.${fileType}`))
+						fs.renameSync(
+							path.join(process.cwd(), "temp", rpkgOfFile, fileType, `${entityContent.file}.${fileType}.json`),
+							path.join(process.cwd(), "temp", rpkgOfFile, fileType, `${entityContent.file}.${fileType}`)
 						)
 					}
+
+					let fileContent = JSON.parse(fs.readFileSync(path.join(process.cwd(), "temp", rpkgOfFile, fileType, `${entityContent.file}.${fileType}`), "utf8"))
+
+					if (entityContent.type === "ORES" && Array.isArray(fileContent)) {
+						fileContent = Object.fromEntries(fileContent.map((a) => [a.Id, a])) // Change unlockables ORES to be an object
+					} else if (entityContent.type === "REPO") {
+						fileContent = Object.fromEntries(fileContent.map((a: { [x: string]: unknown }) => [a["ID_"], a])) // Change REPO to be an object
+					}
+
+					rfc6902.applyPatch(fileContent, entityContent.patch) // Apply the JSON patch
+
+					if ((entityContent.type === "ORES" && Object.prototype.toString.call(fileContent) === "[object Object]") || entityContent.type === "REPO") {
+						fileContent = Object.values(fileContent) // Change back to an array
+					}
+
+					if (entityContent.type === "ORES") {
+						fs.renameSync(
+							path.join(process.cwd(), "temp", rpkgOfFile, fileType, `${entityContent.file}.${fileType}`),
+							path.join(process.cwd(), "temp", rpkgOfFile, fileType, `${entityContent.file}.${fileType}.json`)
+						)
+						fs.writeFileSync(path.join(process.cwd(), "temp", rpkgOfFile, fileType, `${entityContent.file}.${fileType}.json`), JSON.stringify(fileContent))
+						execCommand(`"Third-Party\\OREStool.exe" "${path.join(process.cwd(), "temp", rpkgOfFile, fileType, `${entityContent.file}.${fileType}.json`)}"`)
+					} else {
+						fs.writeFileSync(path.join(process.cwd(), "temp", rpkgOfFile, fileType, `${entityContent.file}.${fileType}`), JSON.stringify(fileContent))
+					}
+
+					await copyToCache(
+						instruction.cacheFolder,
+						path.join(process.cwd(), "temp", rpkgOfFile),
+						path.join(`chunk${content.chunk}`, `${path.basename(contentIdentifier).slice(0, 15)}-${await xxhash3(contentIdentifier)}`)
+					)
 
 					if (contractsORESContent[entityContent.file]) {
 						const fileContent = JSON.parse(fs.readFileSync(path.join(process.cwd(), "temp", rpkgOfFile, fileType, `${entityContent.file}.${fileType}`), "utf8"))
@@ -1202,171 +1161,161 @@ export default async function deploy(
 				}
 				case "texture.tga": {
 					await logger.debug(`Converting texture ${contentIdentifier}`)
+					fs.ensureDirSync(path.join(process.cwd(), "temp", `chunk${content.chunk}`))
 
-					if (
-						invalidatedData.some((a) => a.filePath === contentIdentifier) || // must redeploy, invalid cache
-						!(await copyFromCache(
-							instruction.cacheFolder,
-							path.join(`chunk${content.chunk}`, `${path.basename(contentIdentifier).slice(0, 15)}-${await xxhash3(contentIdentifier)}`),
-							path.join(process.cwd(), "temp", `chunk${content.chunk}`)
-						)) // cache is not available
-					) {
-						fs.ensureDirSync(path.join(process.cwd(), "temp", `chunk${content.chunk}`))
+					if ((content.source === "disk" && path.basename(content.path).split(".")[0].split("~").length > 1) || (content.source === "virtual" && content.extraInformation.texdHash)) {
+						// TEXT and TEXD
 
-						if ((content.source === "disk" && path.basename(content.path).split(".")[0].split("~").length > 1) || (content.source === "virtual" && content.extraInformation.texdHash)) {
-							// TEXT and TEXD
-
-							let contentFilePath
-							if (content.source === "disk") {
-								contentFilePath = content.path
-							} else {
-								fs.ensureDirSync(path.join(process.cwd(), "virtual"))
-								fs.writeFileSync(path.join(process.cwd(), "virtual", "texture.tga"), Buffer.from(await content.content.arrayBuffer()))
-								fs.writeFileSync(path.join(process.cwd(), "virtual", "texture.tga.meta"), Buffer.from(await content.extraInformation.textureMeta!.arrayBuffer()))
-								contentFilePath = path.join(process.cwd(), "virtual", "texture.tga")
-							}
-
-							execCommand(
-								`"Third-Party\\HMTextureTools" rebuild H3 "${contentFilePath}" --metapath "${`${contentFilePath}.meta`}" "${path.join(
-									process.cwd(),
-									"temp",
-									`chunk${content.chunk}`,
-									`${content.source === "disk" ? path.basename(content.path).split(".")[0].split("~")[0] : content.extraInformation.textHash}.TEXT`
-								)}" --rebuildboth --texdoutput "${path.join(
-									process.cwd(),
-									"temp",
-									`chunk${content.chunk}`,
-									`${content.source === "disk" ? path.basename(content.path).split(".")[0].split("~")[1] : content.extraInformation.texdHash}.TEXD`
-								)}"`
-							) // Rebuild texture to TEXT/TEXD
-
-							fs.writeFileSync(
-								path.join(
-									process.cwd(),
-									"temp",
-									`chunk${content.chunk}`,
-									`${content.source === "disk" ? path.basename(content.path).split(".")[0].split("~")[0] : content.extraInformation.textHash}.TEXT.meta.JSON`
-								),
-								JSON.stringify({
-									hash_value: content.source === "disk" ? path.basename(content.path).split(".")[0].split("~")[0] : content.extraInformation.textHash,
-									hash_offset: 21488715,
-									hash_size: 2147483648,
-									hash_resource_type: "TEXT",
-									hash_reference_table_size: 13,
-									hash_reference_table_dummy: 0,
-									hash_size_final: 6054,
-									hash_size_in_memory: 4294967295,
-									hash_size_in_video_memory: 688128,
-									hash_reference_data: [
-										{
-											hash: content.source === "disk" ? path.basename(content.path).split(".")[0].split("~")[1] : content.extraInformation.texdHash,
-											flag: "9F"
-										}
-									]
-								})
-							)
-
-							fs.writeFileSync(
-								path.join(
-									process.cwd(),
-									"temp",
-									`chunk${content.chunk}`,
-									`${content.source === "disk" ? path.basename(content.path).split(".")[0].split("~")[1] : content.extraInformation.texdHash}.TEXD.meta.JSON`
-								),
-								JSON.stringify({
-									hash_value: content.source === "disk" ? path.basename(content.path).split(".")[0].split("~")[1] : content.extraInformation.texdHash,
-									hash_offset: 233821026,
-									hash_size: 0,
-									hash_resource_type: "TEXD",
-									hash_reference_table_size: 0,
-									hash_reference_table_dummy: 0,
-									hash_size_final: 120811,
-									hash_size_in_memory: 4294967295,
-									hash_size_in_video_memory: 688128,
-									hash_reference_data: []
-								})
-							)
-
-							await callRPKGFunction(
-								`-json_to_hash_meta "${path.join(
-									process.cwd(),
-									"temp",
-									`chunk${content.chunk}`,
-									`${content.source === "disk" ? path.basename(content.path).split(".")[0].split("~")[0] : content.extraInformation.textHash}.TEXT.meta.JSON`
-								)}"`
-							) // Rebuild the TEXT meta
-
-							await callRPKGFunction(
-								`-json_to_hash_meta "${path.join(
-									process.cwd(),
-									"temp",
-									`chunk${content.chunk}`,
-									`${content.source === "disk" ? path.basename(content.path).split(".")[0].split("~")[1] : content.extraInformation.texdHash}.TEXD.meta.JSON`
-								)}"`
-							) // Rebuild the TEXD meta
-
-							fs.removeSync(path.join(process.cwd(), "virtual"))
+						let contentFilePath
+						if (content.source === "disk") {
+							contentFilePath = content.path
 						} else {
-							// TEXT only
-
-							let contentFilePath
-							if (content.source === "disk") {
-								contentFilePath = content.path
-							} else {
-								fs.ensureDirSync(path.join(process.cwd(), "virtual"))
-								fs.writeFileSync(path.join(process.cwd(), "virtual", "texture.tga"), Buffer.from(await content.content.arrayBuffer()))
-								fs.writeFileSync(path.join(process.cwd(), "virtual", "texture.tga.meta"), Buffer.from(await content.extraInformation.textureMeta!.arrayBuffer()))
-								contentFilePath = path.join(process.cwd(), "virtual", "texture.tga")
-							}
-
-							execCommand(
-								`"Third-Party\\HMTextureTools" rebuild H3 "${contentFilePath}" --metapath "${`${contentFilePath}.meta`}" "${path.join(
-									process.cwd(),
-									"temp",
-									`chunk${content.chunk}`,
-									`${path.basename(contentFilePath).split(".")[0]}.TEXT`
-								)}"`
-							) // Rebuild texture to TEXT only
-
-							fs.writeFileSync(
-								path.join(
-									process.cwd(),
-									"temp",
-									`chunk${content.chunk}`,
-									`${content.source === "disk" ? path.basename(content.path).split(".")[0].split("~")[0] : content.extraInformation.textHash}.TEXT.meta.json`
-								),
-								JSON.stringify({
-									hash_value: content.source === "disk" ? path.basename(content.path).split(".")[0].split("~")[0] : content.extraInformation.textHash,
-									hash_offset: 21488715,
-									hash_size: 2147483648,
-									hash_resource_type: "TEXT",
-									hash_reference_table_size: 13,
-									hash_reference_table_dummy: 0,
-									hash_size_final: 6054,
-									hash_size_in_memory: 4294967295,
-									hash_size_in_video_memory: 688128,
-									hash_reference_data: []
-								})
-							)
-
-							await callRPKGFunction(
-								`-json_to_hash_meta "${path.join(
-									process.cwd(),
-									"temp",
-									`chunk${content.chunk}`,
-									`${content.source === "disk" ? path.basename(content.path).split(".")[0].split("~")[0] : content.extraInformation.textHash}.TEXT.meta.json`
-								)}"`
-							) // Rebuild the meta
-
-							fs.removeSync(path.join(process.cwd(), "virtual"))
+							fs.ensureDirSync(path.join(process.cwd(), "virtual"))
+							fs.writeFileSync(path.join(process.cwd(), "virtual", "texture.tga"), Buffer.from(await content.content.arrayBuffer()))
+							fs.writeFileSync(path.join(process.cwd(), "virtual", "texture.tga.meta"), Buffer.from(await content.extraInformation.textureMeta!.arrayBuffer()))
+							contentFilePath = path.join(process.cwd(), "virtual", "texture.tga")
 						}
 
-						await copyToCache(
-							instruction.cacheFolder,
-							path.join(process.cwd(), "temp", `chunk${content.chunk}`),
-							path.join(`chunk${content.chunk}`, `${path.basename(contentIdentifier).slice(0, 15)}-${await xxhash3(contentIdentifier)}`)
+						execCommand(
+							`"Third-Party\\HMTextureTools" rebuild H3 "${contentFilePath}" --metapath "${`${contentFilePath}.meta`}" "${path.join(
+								process.cwd(),
+								"temp",
+								`chunk${content.chunk}`,
+								`${content.source === "disk" ? path.basename(content.path).split(".")[0].split("~")[0] : content.extraInformation.textHash}.TEXT`
+							)}" --rebuildboth --texdoutput "${path.join(
+								process.cwd(),
+								"temp",
+								`chunk${content.chunk}`,
+								`${content.source === "disk" ? path.basename(content.path).split(".")[0].split("~")[1] : content.extraInformation.texdHash}.TEXD`
+							)}"`
+						) // Rebuild texture to TEXT/TEXD
+
+						fs.writeFileSync(
+							path.join(
+								process.cwd(),
+								"temp",
+								`chunk${content.chunk}`,
+								`${content.source === "disk" ? path.basename(content.path).split(".")[0].split("~")[0] : content.extraInformation.textHash}.TEXT.meta.JSON`
+							),
+							JSON.stringify({
+								hash_value: content.source === "disk" ? path.basename(content.path).split(".")[0].split("~")[0] : content.extraInformation.textHash,
+								hash_offset: 21488715,
+								hash_size: 2147483648,
+								hash_resource_type: "TEXT",
+								hash_reference_table_size: 13,
+								hash_reference_table_dummy: 0,
+								hash_size_final: 6054,
+								hash_size_in_memory: 4294967295,
+								hash_size_in_video_memory: 688128,
+								hash_reference_data: [
+									{
+										hash: content.source === "disk" ? path.basename(content.path).split(".")[0].split("~")[1] : content.extraInformation.texdHash,
+										flag: "9F"
+									}
+								]
+							})
 						)
+
+						fs.writeFileSync(
+							path.join(
+								process.cwd(),
+								"temp",
+								`chunk${content.chunk}`,
+								`${content.source === "disk" ? path.basename(content.path).split(".")[0].split("~")[1] : content.extraInformation.texdHash}.TEXD.meta.JSON`
+							),
+							JSON.stringify({
+								hash_value: content.source === "disk" ? path.basename(content.path).split(".")[0].split("~")[1] : content.extraInformation.texdHash,
+								hash_offset: 233821026,
+								hash_size: 0,
+								hash_resource_type: "TEXD",
+								hash_reference_table_size: 0,
+								hash_reference_table_dummy: 0,
+								hash_size_final: 120811,
+								hash_size_in_memory: 4294967295,
+								hash_size_in_video_memory: 688128,
+								hash_reference_data: []
+							})
+						)
+
+						await callRPKGFunction(
+							`-json_to_hash_meta "${path.join(
+								process.cwd(),
+								"temp",
+								`chunk${content.chunk}`,
+								`${content.source === "disk" ? path.basename(content.path).split(".")[0].split("~")[0] : content.extraInformation.textHash}.TEXT.meta.JSON`
+							)}"`
+						) // Rebuild the TEXT meta
+
+						await callRPKGFunction(
+							`-json_to_hash_meta "${path.join(
+								process.cwd(),
+								"temp",
+								`chunk${content.chunk}`,
+								`${content.source === "disk" ? path.basename(content.path).split(".")[0].split("~")[1] : content.extraInformation.texdHash}.TEXD.meta.JSON`
+							)}"`
+						) // Rebuild the TEXD meta
+
+						fs.removeSync(path.join(process.cwd(), "virtual"))
+					} else {
+						// TEXT only
+
+						let contentFilePath
+						if (content.source === "disk") {
+							contentFilePath = content.path
+						} else {
+							fs.ensureDirSync(path.join(process.cwd(), "virtual"))
+							fs.writeFileSync(path.join(process.cwd(), "virtual", "texture.tga"), Buffer.from(await content.content.arrayBuffer()))
+							fs.writeFileSync(path.join(process.cwd(), "virtual", "texture.tga.meta"), Buffer.from(await content.extraInformation.textureMeta!.arrayBuffer()))
+							contentFilePath = path.join(process.cwd(), "virtual", "texture.tga")
+						}
+
+						execCommand(
+							`"Third-Party\\HMTextureTools" rebuild H3 "${contentFilePath}" --metapath "${`${contentFilePath}.meta`}" "${path.join(
+								process.cwd(),
+								"temp",
+								`chunk${content.chunk}`,
+								`${path.basename(contentFilePath).split(".")[0]}.TEXT`
+							)}"`
+						) // Rebuild texture to TEXT only
+
+						fs.writeFileSync(
+							path.join(
+								process.cwd(),
+								"temp",
+								`chunk${content.chunk}`,
+								`${content.source === "disk" ? path.basename(content.path).split(".")[0].split("~")[0] : content.extraInformation.textHash}.TEXT.meta.json`
+							),
+							JSON.stringify({
+								hash_value: content.source === "disk" ? path.basename(content.path).split(".")[0].split("~")[0] : content.extraInformation.textHash,
+								hash_offset: 21488715,
+								hash_size: 2147483648,
+								hash_resource_type: "TEXT",
+								hash_reference_table_size: 13,
+								hash_reference_table_dummy: 0,
+								hash_size_final: 6054,
+								hash_size_in_memory: 4294967295,
+								hash_size_in_video_memory: 688128,
+								hash_reference_data: []
+							})
+						)
+
+						await callRPKGFunction(
+							`-json_to_hash_meta "${path.join(
+								process.cwd(),
+								"temp",
+								`chunk${content.chunk}`,
+								`${content.source === "disk" ? path.basename(content.path).split(".")[0].split("~")[0] : content.extraInformation.textHash}.TEXT.meta.json`
+							)}"`
+						) // Rebuild the meta
+
+						fs.removeSync(path.join(process.cwd(), "virtual"))
 					}
+
+					await copyToCache(
+						instruction.cacheFolder,
+						path.join(process.cwd(), "temp", `chunk${content.chunk}`),
+						path.join(`chunk${content.chunk}`, `${path.basename(contentIdentifier).slice(0, 15)}-${await xxhash3(contentIdentifier)}`)
+					)
 
 					fs.ensureDirSync(path.join(process.cwd(), "staging", `chunk${content.chunk}`))
 
@@ -1451,47 +1400,37 @@ export default async function deploy(
 
 					const runtimeID = content.source === "disk" ? path.basename(content.path).split(".")[0].split("~")[0] : content.extraInformation.runtimeID!
 					const fileType = content.source === "disk" ? path.basename(content.path).split(".")[0].split("~")[1] : content.extraInformation.fileType!
+					fs.ensureDirSync(path.join(process.cwd(), "temp", `chunk${content.chunk}`))
 
-					if (
-						invalidatedData.some((a) => a.filePath === contentIdentifier) || // must redeploy, invalid cache
-						!(await copyFromCache(
-							instruction.cacheFolder,
-							path.join(`chunk${content.chunk}`, `${path.basename(contentIdentifier).slice(0, 15)}-${await xxhash3(contentIdentifier)}`),
-							path.join(process.cwd(), "temp", `chunk${content.chunk}`)
-						)) // cache is not available
-					) {
-						fs.ensureDirSync(path.join(process.cwd(), "temp", `chunk${content.chunk}`))
+					const rpkgOfFile = await getRPKGOfHash(runtimeID)
 
-						const rpkgOfFile = await getRPKGOfHash(runtimeID)
+					await extractOrCopyToTemp(rpkgOfFile, runtimeID, fileType, `chunk${content.chunk}`) // Extract the file to temp // Extract the file to temp // Extract the file to temp // Extract the file to temp
 
-						await extractOrCopyToTemp(rpkgOfFile, runtimeID, fileType, `chunk${content.chunk}`) // Extract the file to temp // Extract the file to temp // Extract the file to temp // Extract the file to temp
-
-						let contentFilePath
-						if (content.source === "disk") {
-							contentFilePath = content.path
-						} else {
-							fs.ensureDirSync(path.join(process.cwd(), "virtual"))
-							fs.writeFileSync(path.join(process.cwd(), "virtual", "patch.delta"), Buffer.from(await content.content.arrayBuffer()))
-							contentFilePath = path.join(process.cwd(), "virtual", "patch.delta")
-						}
-
-						execCommand(
-							`"Third-Party\\xdelta3" -d -s "${path.join(process.cwd(), "temp", rpkgOfFile, fileType, `${runtimeID}.${fileType}`)}" "${contentFilePath}" "${path.join(
-								process.cwd(),
-								"temp",
-								`chunk${content.chunk}`,
-								`${runtimeID}.${fileType}`
-							)}"`
-						) // Patch file with delta
-
-						fs.removeSync(path.join(process.cwd(), "virtual"))
-
-						await copyToCache(
-							instruction.cacheFolder,
-							path.join(process.cwd(), "temp", `chunk${content.chunk}`),
-							path.join(`chunk${content.chunk}`, `${path.basename(contentIdentifier).slice(0, 15)}-${await xxhash3(contentIdentifier)}`)
-						)
+					let contentFilePath
+					if (content.source === "disk") {
+						contentFilePath = content.path
+					} else {
+						fs.ensureDirSync(path.join(process.cwd(), "virtual"))
+						fs.writeFileSync(path.join(process.cwd(), "virtual", "patch.delta"), Buffer.from(await content.content.arrayBuffer()))
+						contentFilePath = path.join(process.cwd(), "virtual", "patch.delta")
 					}
+
+					execCommand(
+						`"Third-Party\\xdelta3" -d -s "${path.join(process.cwd(), "temp", rpkgOfFile, fileType, `${runtimeID}.${fileType}`)}" "${contentFilePath}" "${path.join(
+							process.cwd(),
+							"temp",
+							`chunk${content.chunk}`,
+							`${runtimeID}.${fileType}`
+						)}"`
+					) // Patch file with delta
+
+					fs.removeSync(path.join(process.cwd(), "virtual"))
+
+					await copyToCache(
+						instruction.cacheFolder,
+						path.join(process.cwd(), "temp", `chunk${content.chunk}`),
+						path.join(`chunk${content.chunk}`, `${path.basename(contentIdentifier).slice(0, 15)}-${await xxhash3(contentIdentifier)}`)
+					)
 
 					fs.ensureDirSync(path.join(process.cwd(), "staging", `chunk${content.chunk}`))
 
