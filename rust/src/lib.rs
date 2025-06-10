@@ -99,12 +99,15 @@ pub fn free_disk_space() -> Result<f64, napi::Error> {
     let cur_disk: &Disk;
     if cur_path.to_string_lossy().to_lowercase().starts_with("z:\\") {
 		println!("Running inside Wine, defaulting to first disk.");
+		println!("Current path: {}", cur_path.to_string_lossy());
         cur_disk = &sys.disks().get(0).expect("Couldn't get current disk!");
     } else {
 		println!("Running on native, getting current disk.");
+		println!("Current path: {}", cur_path.to_string_lossy());
         cur_disk = sys.disks()
 		    .iter()
 		    .find_map(|x| {
+				println!("Checking disk: {}", x.mount_point().to_string_lossy());
 			    if cur_path
 				    .to_string_lossy()
 				    .to_lowercase()
