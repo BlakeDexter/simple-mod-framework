@@ -1532,37 +1532,38 @@ export default async function deploy(
 					logger.info("2")
 					const hash = normaliseToHash(entityContent["hash"])
 					logger.info("3")
-					if (
-						invalidatedData.some((a) => a.filePath === contentIdentifier) || // must redeploy, invalid cache
-						!(await copyFromCache(instruction.cacheFolder, path.join(`chunk${content.chunk}`, await xxhash3(contentIdentifier)), path.join(process.cwd(), "temp", `chunk${content.chunk}`))) // cache is not available
-					) {
-						logger.info("4")
-						fs.ensureDirSync(path.join(process.cwd(), "temp", `chunk${content.chunk}`))
 
-						let contentFilePath
-						if (content.source === "disk") {
-							contentFilePath = content.path
-						} else {
-							fs.ensureDirSync(path.join(process.cwd(), "virtual"))
-							fs.writeFileSync(path.join(process.cwd(), "virtual", content.type), Buffer.from(await content.content.arrayBuffer()))
-							contentFilePath = path.join(process.cwd(), "virtual", content.type)
-						}
-						execCommand(
-							`"Third-Party\\HMLanguageTools" rebuild H3 ${binaryType} "${contentFilePath}" "${path.join(
-								process.cwd(),
-								"temp",
-								`chunk${content.chunk}`,
-								`${hash}.${binaryType}`
-							)}" --metapath "${path.join(process.cwd(), "temp", `chunk${content.chunk}`, `${hash}.${binaryType}.meta.json`)}"`
-						)
+					logger.info("4")
+					fs.ensureDirSync(path.join(process.cwd(), "temp", `chunk${content.chunk}`))
 
-						fs.removeSync(path.join(process.cwd(), "virtual"))
-
-
-						await copyToCache(instruction.cacheFolder, path.join(process.cwd(), "temp", `chunk${content.chunk}`), path.join(`chunk${content.chunk}`, await xxhash3(contentIdentifier)))
+					let contentFilePath
+					if (content.source === "disk") {
+						contentFilePath = content.path
+					} else {
+						fs.ensureDirSync(path.join(process.cwd(), "virtual"))
+						fs.writeFileSync(path.join(process.cwd(), "virtual", content.type), Buffer.from(await content.content.arrayBuffer()))
+						contentFilePath = path.join(process.cwd(), "virtual", content.type)
 					}
+					logger.info("5")
+					execCommand(
+						`"Third-Party\\HMLanguageTools" rebuild H3 ${binaryType} "${contentFilePath}" "${path.join(
+							process.cwd(),
+							"temp",
+							`chunk${content.chunk}`,
+							`${hash}.${binaryType}`
+						)}" --metapath "${path.join(process.cwd(), "temp", `chunk${content.chunk}`, `${hash}.${binaryType}.meta.json`)}"`
+					)
+					logger.info("6")					
+
+					fs.removeSync(path.join(process.cwd(), "virtual"))
+					logger.info("7")
+
+					await copyToCache(instruction.cacheFolder, path.join(process.cwd(), "temp", `chunk${content.chunk}`), path.join(`chunk${content.chunk}`, await xxhash3(contentIdentifier)))
+					logger.info("8")
+
 
 					fs.ensureDirSync(path.join(process.cwd(), "staging", `chunk${content.chunk}`))
+					logger.info("9")
 
 					// Copy converted files
 					fs.copyFileSync(path.join(process.cwd(), "temp", `chunk${content.chunk}`, `${hash}.${binaryType}`), path.join(process.cwd(), "staging", `chunk${content.chunk}`, `${hash}.${binaryType}`))
